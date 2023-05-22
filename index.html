@@ -15,6 +15,10 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"
         integrity="sha512-dfX5uYVXzyU8+KHqj8bjo7UkOdg18PaOtpa48djpNbZHwExddghZ+ZmzWT06R5v6NSk3ZUfsH6FNEDepLx9hPQ=="
         crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <!-- font awesome for awesome icons -->
+    <script defer src="https://use.fontawesome.com/releases/v5.15.4/js/all.js"
+        integrity="sha384-rOA1PnstxnOBLzCLMcre8ybwbTmemjzdNlILg8O7z1lUkLXozs4DHonlDtnE7fpc" crossorigin="anonymous">
+    </script>
     <!-- CSS Leaflet -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
         integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A=="
@@ -124,7 +128,7 @@
                 zoomInTitle: 'Zoom in',
                 zoomOutText: '-',
                 zoomOutTitle: 'Zoom out',
-                zoomHomeText: '<-',
+                zoomHomeText: '<i class="fa fa-globe" style="line-height:1.65;"></i>',
                 zoomHomeTitle: 'Zoom home'
             },
 
@@ -160,14 +164,24 @@
 
             _zoomHome: function (e) {
                 map.setView([28.4, 84], 8);
-                //remove the local units
-                // if ((map.hasLayer(local_units))) {
-                //     removeLabels(allLocalLevelLabels, true);
-                //     map.removeLayer(local_units);
-                // }
-                removeLabels(allLocalLevelLabels, true);
-                map.removeLayer(local_units);
-                map.addLayer(districts);
+
+                //reset the style of the local units
+                changeLabels(allLocalLevelLabels, true);
+
+                if (!map.hasLayer(districts)) {
+                    districts.eachLayer(function (layer) {
+                        layer.on({
+                            // mouseover: highlightFeature,
+                            click: zoomToFeature
+                        });
+                    })
+                    map.addLayer(districts);
+                    changeLabels(allDistrictLabels, false);
+                }
+                if (map.hasLayer(local_units)) {
+                   // map.removeLayer(local_units);
+                    changeLabels(allLocalLevelLabels, true);
+                }
 
                 info.update();
 
@@ -242,6 +256,8 @@
 
         return convertedNumber;
     }
+
+
     //global variables
     // for production
     // var baseURL = 'https://data.recc.com.np/uploads';
@@ -264,7 +280,19 @@
     }).setView([28.4, 84], 8);
 
 
+    //helper function to add/remove layers in a map
+    function changeLabels(labels, remove) {
+        if (remove) {
+            labels.forEach(element => {
+                map.removeLayer(element);
+            });
+        } else {
+            labels.forEach(element => {
+                map.addLayer(element);
+            });
+        }
 
+    }
 
     //Panel to show the information of the local level
     var info = L.control();
@@ -291,8 +319,6 @@
     info.addTo(map);
 
 
-
-
     var zoomHome = new L.Control.zoomHome();
     zoomHome.addTo(map);
     // L.tileLayer is the predefined function that adds the tile layer to the map
@@ -314,11 +340,13 @@
     function zoomToLocalFeature(e) {
         // local_units.resetStyle();
         //find out the code of the local level
-
-        // var code = e.target.feature.properties.code;
+        //clear the info panel
+        info.update();
+        // var code = e.target.feature.properties.Code;
 
         var gapa = e.target.feature.properties.GaPa_NaPa;
-        var code = map_gapa_code[gapa];
+        var code = e.target.feature.properties.Code;
+        var gapa_np = e.target.feature.properties.name_np;
 
         var url = `${baseURL}/${code}_W.CSV`;
         $.ajax({
@@ -337,7 +365,7 @@
                 });
                 var content_for_panel = {};
                 content_for_panel = {
-                    'स्थानीय तह': gapa,
+                    'स्थानीय तह': gapa_np,
                     'वडा संख्या': convertToNepaliUnicode(ward_nos),
                     'महिला': convertToNepaliUnicode(female_population),
                     'पुरष': convertToNepaliUnicode(male_population)
@@ -354,8 +382,19 @@
         });
 
     }
+    function localStyle(feature){
+        return {
+            fillColor: '#fff',
+            weight: 2,
+            opacity: 1,
+            color: 'white',
+            dashArray: '3',
+            fillOpacity: 0.7
+        };
+    }
 
     var local_units = new L.geoJSON(null, {
+        style: localStyle,
         onEachFeature: onEachLocalFeature
     });
 
@@ -402,9 +441,7 @@
     }
 
 
-    function resetHighlight(e) {
-        districts.resetStyle(e.target);
-    }
+
 
     function zoomToFeature(e) {
         //e.target
@@ -412,37 +449,51 @@
         var district_name = e.target.feature.properties.DISTRICT;
         var district_code = e.target.feature.properties.CODE;
         //removing district lables
-        removeLabels(allDistrictLabels, true);
+        changeLabels(allDistrictLabels, true);
         //remove all the locallevels and local level labels
-        removeLabels(allLocalLevelLabels, true);
+        changeLabels(allLocalLevelLabels, true);
         if ((map.hasLayer(local_units))) {
-            removeLabels(allLocalLevelLabels, true);
+            changeLabels(allLocalLevelLabels, true);
+            map.removeLayer(local_units);
+        }
+
+
+        if (map.hasLayer(districts)) {
+            map.removeLayer(districts);
         }
 
         local_units.eachLayer(function (layer) {
+            // debugger;
             // Styling so that only that districts local units are highlighted
+            console.log(`${layer.feature.properties.DISTRICT} == ${district_name}`);
             if (layer.feature.properties.DISTRICT == district_name) {
+                console.log(`painting blue on ${layer.feature.properties.name_np}`);
                 layer.setStyle({
                     color: '#15aabf',
-                    fillOpacity: 0
+                    fillOpacity: 0.7
                 });
                 var center_lat = layer.getBounds().getCenter().lat;
                 var center_lng = layer.getBounds().getCenter().lng;
                 var labelLocation = new L.LatLng(center_lat, center_lng);
 
-                var labelContent = `${layer.feature.properties.GaPa_NaPa}`;
+                var labelContent = `${layer.feature.properties.name_np}`;
                 var labelTitle = new L.LabelOverlay(labelLocation, labelContent);
                 allLocalLevelLabels.push(labelTitle);
                 map.addLayer(labelTitle)
             } else {
+                console.log(`painting orange on ${layer.feature.properties.name_np}`);
                 layer.setStyle({
                     color: '#ff7256',
-                    opacity: 0
+                    opacity: 0.7
                 })
             }
         });
+
+
         local_units.addTo(map);
-        map.removeLayer(districts);
+
+        
+
         map.fitBounds(e.target.getBounds());
 
         //refer to https://data.recc.com.np/xlsupload for the data
@@ -453,7 +504,6 @@
 
         layer.on({
             // mouseover: highlightFeature,
-            mouseout: resetHighlight,
             click: zoomToFeature
         });
         // debugger;
@@ -495,45 +545,26 @@
         "Local Units": local_units
     };
 
-    // L.control.layers(baseMaps, overlayMaps).addTo(map);
+    L.control.layers(baseMaps, overlayMaps).addTo(map);
 
-    map.on('zoom', function (e) {
 
-        // if (!(map.hasLayer(districts))){
-        //     districts.addTo(map);
-        //     removeLabels(alllabels);
-        // }
-
-    });
-
-    function removeLabels(labels, remove) {
-        if (remove) {
-            labels.forEach(element => {
-                map.removeLayer(element);
-            });
-        } else {
-            labels.forEach(element => {
-                map.addLayer(element);
-            });
-        }
-
-    }
-    map.on('movestart', function () {
-        //loop through all the labels
-        //remove them map.removeLayer()
-        removeLabels(allDistrictLabels, true);
-        removeLabels(allLocalLevelLabels, true);
-        $(".leaflet-label-overlay").each(function (i) {
-            // debugger;
-            $(this).css("font-size", Math.pow(2, map.getZoom()) / 2000 + "%").css("margin-left", -$(
-                    this).width() /
-                2).css("margin-top", -$(this).height() / 2);
-        });
-    });
-    map.on('moveend', function () {
-        removeLabels(allDistrictLabels, false);
-        removeLabels(allLocalLevelLabels, false);
-    });
+    // map.on('movestart', function () {
+    //     //loop through all the labels
+    //     //remove them map.removeLayer()
+    //     changeLabels(allDistrictLabels, true);
+    //     changeLabels(allLocalLevelLabels, true);
+    //     $(".leaflet-label-overlay").each(function (i) {
+    //         // debugger;
+    //         $(this).css("font-size", Math.pow(2, map.getZoom()) / 2000 + "%").css("margin-left", -$(
+    //                 this).width() /
+    //             2).css("margin-top", -$(this).height() / 2);
+    //     });
+    // });
+    // map.on('moveend', function () {
+    //     console.log('move end')
+    //     changeLabels(allDistrictLabels, false);
+    //     changeLabels(allLocalLevelLabels, false);
+    // });
 </script>
 
 </html>
