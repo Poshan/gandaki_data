@@ -179,16 +179,19 @@
                     changeLabels(allDistrictLabels, false);
                 }
                 if (map.hasLayer(local_units)) {
-                   // map.removeLayer(local_units);
+                    // map.removeLayer(local_units);
                     changeLabels(allLocalLevelLabels, true);
                 }
 
                 info.update();
 
 
-                // if (map.hasLayer(local_units)){
-                //     map.removeLayer(local_units);
-                // }
+                if (map.hasLayer(local_units)) {
+                    local_units.setStyle(localStyle);
+                    // map.removeLayer(local_units);
+                    // local_units.clearLayers();
+                    //reset the style too
+                }
 
             },
 
@@ -232,6 +235,22 @@
 
 <!-- IN this part we write the javascript code that displays the map in the above added map div -->
 <script>
+    //map nepali names to district
+    var mapNepaliDist = {
+        'BAGLUNG': 'बागलुङ',
+        'GORKHA': 'गोरखा',
+        'KASKI': 'कास्की',
+        'LAMJUNG': 'लमजुङ',
+        'MANANG': 'मनाङ',
+        'MUSTANG': 'मुस्ताङ',
+        'MYAGDI': 'म्याग्दी',
+        'NAWALPARASI_E': 'नवलपरासी (बर्दघाट सुस्ता पूर्व)',
+        'PARBAT': 'पर्वत',
+        'SYANGJA': 'स्याङ्जा',
+        'TANAHU': 'तनहुँ'
+    }
+
+
     //helper function 
     function convertToNepaliUnicode(number) {
         // Define the mapping of English digits to Hindi Unicode characters
@@ -347,7 +366,9 @@
         var gapa = e.target.feature.properties.GaPa_NaPa;
         var code = e.target.feature.properties.Code;
         var gapa_np = e.target.feature.properties.name_np;
-
+        var content_for_panel = {};
+        content_for_panel['स्थानीय तह'] = gapa_np;
+        info.update(content_for_panel);
         var url = `${baseURL}/${code}_W.CSV`;
         $.ajax({
             dataType: "text",
@@ -363,15 +384,14 @@
                     female_population += parseInt(element[2]);
                     ward_nos += 1;
                 });
-                var content_for_panel = {};
-                content_for_panel = {
-                    'स्थानीय तह': gapa_np,
-                    'वडा संख्या': convertToNepaliUnicode(ward_nos),
-                    'महिला': convertToNepaliUnicode(female_population),
-                    'पुरष': convertToNepaliUnicode(male_population)
-                }
+                content_for_panel['वडा संख्या'] = convertToNepaliUnicode(ward_nos);
+                content_for_panel['महिला'] = convertToNepaliUnicode(female_population);
+                content_for_panel['पुरष'] = convertToNepaliUnicode(male_population);
+
+
                 info.update(content_for_panel);
             }
+            
         });
 
     }
@@ -382,14 +402,15 @@
         });
 
     }
-    function localStyle(feature){
+
+    function localStyle(feature) {
         return {
             fillColor: '#fff',
             weight: 2,
             opacity: 1,
             color: 'white',
             dashArray: '3',
-            fillOpacity: 0.7
+            fillOpacity: 0.9
         };
     }
 
@@ -467,10 +488,14 @@
             // Styling so that only that districts local units are highlighted
             console.log(`${layer.feature.properties.DISTRICT} == ${district_name}`);
             if (layer.feature.properties.DISTRICT == district_name) {
-                console.log(`painting blue on ${layer.feature.properties.name_np}`);
+                //console.log(`painting blue on ${layer.feature.properties.name_np}`);
                 layer.setStyle({
+                    fillColor: '#fff',
+                    weight: 2,
+                    opacity: 1,
                     color: '#15aabf',
-                    fillOpacity: 0.7
+                    dashArray: '3',
+                    fillOpacity: 0.9
                 });
                 var center_lat = layer.getBounds().getCenter().lat;
                 var center_lng = layer.getBounds().getCenter().lng;
@@ -481,10 +506,12 @@
                 allLocalLevelLabels.push(labelTitle);
                 map.addLayer(labelTitle)
             } else {
-                console.log(`painting orange on ${layer.feature.properties.name_np}`);
+                // console.log(`painting orange on ${layer.feature.properties.name_np}`);
                 layer.setStyle({
-                    color: '#ff7256',
-                    opacity: 0.7
+                    fillColor: '#ff7800',
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 0.9
                 })
             }
         });
@@ -492,11 +519,10 @@
 
         local_units.addTo(map);
 
-        
+
 
         map.fitBounds(e.target.getBounds());
 
-        //refer to https://data.recc.com.np/xlsupload for the data
     }
 
 
@@ -511,7 +537,7 @@
         var center_lng = -0.04 + layer.getBounds().getCenter().lng;
         var labelLocation = new L.LatLng(center_lat, center_lng);
 
-        var labelContent = `<b class='labels'>${feature.properties.DISTRICT}</b>`;
+        var labelContent = `<b class='labels'>${mapNepaliDist[feature.properties.DISTRICT]}</b>`;
         var labelTitle = new L.LabelOverlay(labelLocation, labelContent);
         allDistrictLabels.push(labelTitle);
         map.addLayer(labelTitle);
@@ -545,7 +571,7 @@
         "Local Units": local_units
     };
 
-    L.control.layers(baseMaps, overlayMaps).addTo(map);
+    // L.control.layers(baseMaps, overlayMaps).addTo(map);
 
 
     // map.on('movestart', function () {
