@@ -1,3 +1,9 @@
+//For test setting the files at local folder
+var baseURL = 'uploads'; //location of population data 
+var fileLocation = 'geojsonFiles'; //location of shapes
+
+
+
 L.LabelOverlay = L.Layer.extend({
     initialize: function ( /*LatLng*/ latLng, /*String*/ label, options) {
         this._latlng = latLng;
@@ -93,19 +99,12 @@ L.Control.zoomHome = L.Control.extend({
             map.addLayer(districts);
             changeLabels(allDistrictLabels, false);
         }
-        if (map.hasLayer(localUnits)) {
-            // map.removeLayer(localUnits);
-            changeLabels(allLocalLevelLabels, true);
-        }
-
         info.update();
 
 
         if (map.hasLayer(localUnits)) {
-            // localUnits.setStyle(localStyle);
-            map.removeLayer(localUnits);
-            // localUnits.clearLayers();
-            //reset the style too
+            localUnits.clearLayers();
+            changeLabels(allLocalLevelLabels, true);
         }
 
     },
@@ -140,8 +139,6 @@ L.Control.zoomHome = L.Control.extend({
     }
 });
 
-
-
 //map nepali names to district
 var mapNepaliDist = {
     'BAGLUNG': 'बागलुङ',
@@ -157,11 +154,17 @@ var mapNepaliDist = {
     'TANAHU': 'तनहुँ'
 }
 
-
+var mapGNType =  {
+    "Gaunpalika": "गाउँपालिका",
+    "Mahanagarpalika":"महानगरपालिका",
+    "Nagarpalika": "नगरपालिका",
+    "Hunting Reserve":"",
+    "National Park": ""
+}
 //helper function 
 function convertToNepaliUnicode(number) {
-    // Define the mapping of English digits to Hindi Unicode characters
-    const hindiDigits = {
+    // Define the mapping of English digits to Nepali Unicode characters
+    const nepaliDigits = {
         '0': '\u0966',
         '1': '\u0967',
         '2': '\u0968',
@@ -177,19 +180,16 @@ function convertToNepaliUnicode(number) {
     // Convert each digit to its Hindi Unicode equivalent
     const convertedNumber = String(number)
         .split('')
-        .map((digit) => hindiDigits[digit] || digit)
+        .map((digit) => nepaliDigits[digit] || digit)
         .join('');
 
     return convertedNumber;
 }
 
 
-//global variables
-// for production
-// var baseURL = 'https://data.recc.com.np/uploads';
 
-//For test setting the files at local folder
-var baseURL = 'uploads';
+
+
 var districtNameClicked;
 
 // Map variables
@@ -214,7 +214,9 @@ function changeLabels(labels, remove) {
 }
 
 //Panel to show the information of the local level
-var info = L.control({position: 'bottomright'});
+var info = L.control({
+    position: 'bottomright'
+});
 
 info.onAdd = function (map) {
     this._div = L.DomUtil.create('div', 'info'); // create a div with a class "info"
@@ -251,17 +253,22 @@ var allLocalLevelLabels = [];
 //on the click of a local level
 function zoomToLocalFeature(e) {
     //clear the info panel
+    //reset if any highlight
+    localUnits.setStyle(localStyle);
+    
+    //empty the panel with only default items left
     info.update();
-    // var code = e.target.feature.properties.Code;
+
+    //create the contents for the panel
     var district = e.target.feature.properties.DISTRICT;
-    // var gapa = e.target.feature.properties.GaPa_NaPa;
     var code = e.target.feature.properties.Code;
     var gapa_np = e.target.feature.properties.name_np;
+    var type = e.target.feature.properties.Type_GN
     var contentForPanel = {};
     contentForPanel['जिल्ला'] = mapNepaliDist[district];
-    contentForPanel['स्थानीय तह'] = gapa_np;
+    contentForPanel['स्थानीय तह'] = `${gapa_np} ${mapGNType[type]}`;
     info.update(contentForPanel);
-    
+
     var url = `${baseURL}/${code}_W.CSV`;
     $.ajax({
         dataType: "text",
@@ -287,6 +294,18 @@ function zoomToLocalFeature(e) {
     // if another data is to be loaded...ajax here to load another csv
     //info.update(contentForPanel);
     map.fitBounds(e.target.getBounds());
+
+    //highlight the clicked local level
+    var layer = e.target;
+
+    layer.setStyle({
+        weight: 5,
+        color: '#666',
+        dashArray: '',
+        fillOpacity: 0.7
+    });
+
+    layer.bringToFront();
 }
 
 function onEachLocalFeature(feature, layer) {
@@ -301,7 +320,7 @@ function localStyle(feature) {
         fillColor: '#fff',
         weight: 2,
         opacity: 1,
-        color: 'white',
+        color: '#15aabf',
         dashArray: '3',
         fillOpacity: 0.9
     };
@@ -311,17 +330,6 @@ var localUnits = new L.geoJSON(null, {
     style: localStyle,
     onEachFeature: onEachLocalFeature
 });
-
-$.ajax({
-    dataType: 'json',
-    url: 'local_units.geojson',
-    success: function (data) {
-        $(data.features).each(function (key, data) {
-            localUnits.addData(data);
-        });
-    }
-});
-
 
 // district layer related 
 function getColor(d) {
@@ -355,56 +363,40 @@ function style(feature) {
 
 //on the click of the district
 function zoomToFeature(e) {
-    //e.target
-    //get distrit code
+
     var districtNameClicked = e.target.feature.properties.DISTRICT;
+
     $("#dist").html(`${mapNepaliDist[districtNameClicked]} जिल्ला`);
-    
-    // var district_code = e.target.feature.properties.CODE;
-    //removing district lables
-    changeLabels(allDistrictLabels, true);
-    //remove all the locallevels and local level labels
-    changeLabels(allLocalLevelLabels, true);
+
+
+
     if ((map.hasLayer(localUnits))) {
         changeLabels(allLocalLevelLabels, true);
-        map.removeLayer(localUnits);
+        localUnits.clearLayers()
     }
 
-    localUnits.eachLayer(function (layer) {
-        // Styling so that only that districts local units are highlighted
-        if (layer.feature.properties.DISTRICT == districtNameClicked) {
-            layer.setStyle({
-                fillColor: '#fff',
-                weight: 2,
-                opacity: 1,
-                color: '#15aabf',
-                dashArray: '3',
-                fillOpacity: 0.9
+    var url = `${fileLocation}/${districtNameClicked}.geojson`
+    $.ajax({
+        dataType: 'json',
+        url: url,
+        success: function (data) {
+            $(data.features).each(function (key, data) {
+                localUnits.addData(data);
             });
-            var center_lat = layer.getBounds().getCenter().lat;
-            var center_lng = layer.getBounds().getCenter().lng;
-            var labelLocation = new L.LatLng(center_lat, center_lng);
-            var labelContent = `${layer.feature.properties.name_np}`;
-            var labelTitle = new L.LabelOverlay(labelLocation, labelContent);
-            allLocalLevelLabels.push(labelTitle);
-            map.addLayer(labelTitle)
-        } else {
-            layer.clickable = false;
-            layer.setStyle({
-                fillColor: '#ff7800',
-                weight: 2,
-                opacity: 0,
-                fillOpacity: 0
-            })
+            localUnits.eachLayer(function (layer) {
+                var center_lat = layer.getBounds().getCenter().lat;
+                var center_lng = layer.getBounds().getCenter().lng;
+                var labelLocation = new L.LatLng(center_lat, center_lng);
+                var labelContent = `${layer.feature.properties.name_np}`;
+                var labelTitle = new L.LabelOverlay(labelLocation, labelContent);
+                allLocalLevelLabels.push(labelTitle);
+                map.addLayer(labelTitle)
+            });
+            localUnits.addTo(map);
+            map.fitBounds(e.target.getBounds());
         }
     });
-
-
-    localUnits.addTo(map);
-    map.fitBounds(e.target.getBounds());
-
 }
-
 
 function onEachDistrictFeature(feature, layer) {
 
@@ -430,7 +422,7 @@ var districts = new L.geoJson(null, {
 });
 $.ajax({
     dataType: 'json',
-    url: 'Gandaki_WGS.geojson',
+    url: `${fileLocation}/Gandaki_WGS.geojson`,
     success: function (data) {
         $(data.features).each(function (key, data) {
             districts.addData(data);
@@ -438,7 +430,6 @@ $.ajax({
         districts.addTo(map);
     }
 });
-
 
 // var baseMaps = {
 //     "baselayers": osm
@@ -458,7 +449,6 @@ $.ajax({
 //     changeLabels(allDistrictLabels, true);
 //     changeLabels(allLocalLevelLabels, true);
 //     $(".leaflet-label-overlay").each(function (i) {
-//         // debugger;
 //         $(this).css("font-size", Math.pow(2, map.getZoom()) / 2000 + "%").css("margin-left", -$(
 //                 this).width() /
 //             2).css("margin-top", -$(this).height() / 2);
