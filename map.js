@@ -81,8 +81,6 @@ L.Control.zoomHome = L.Control.extend({
 
     _zoomHome: function (e) {
         map.setView([28.5, 84], 8);
-        debugger;
-
         //reset the style of the local units
         changeLabels(allLocalLevelLabels, true);
         changeLabels(allDistrictLabels, false);
@@ -226,7 +224,7 @@ info.onAdd = function (map) {
 
 // method that we will use to update the control based on feature properties passed
 info.update = function (props) {
-    var content = '<h4>स्थानीय तहको विवरण</h4>';
+    var content = '<span id = "dist"></span><h4>स्थानीय तहको विवरण</h4>';
     if (props) {
         for (const key in props) {
             content += `<b>${key}:</b>${props[key]}<br />`;
@@ -249,6 +247,8 @@ var allDistrictLabels = [];
 var allLocalLevelLabels = [];
 
 //local level GIS layer
+
+//on the click of a local level
 function zoomToLocalFeature(e) {
     //clear the info panel
     info.update();
@@ -286,7 +286,7 @@ function zoomToLocalFeature(e) {
 
     // if another data is to be loaded...ajax here to load another csv
     //info.update(contentForPanel);
-
+    map.fitBounds(e.target.getBounds());
 }
 
 function onEachLocalFeature(feature, layer) {
@@ -353,12 +353,13 @@ function style(feature) {
 
 
 
-
+//on the click of the district
 function zoomToFeature(e) {
-
     //e.target
     //get distrit code
     var districtNameClicked = e.target.feature.properties.DISTRICT;
+    $("#dist").html(`${mapNepaliDist[districtNameClicked]} जिल्ला`);
+    
     // var district_code = e.target.feature.properties.CODE;
     //removing district lables
     changeLabels(allDistrictLabels, true);
@@ -467,6 +468,3 @@ $.ajax({
 //     changeLabels(allDistrictLabels, false);
 //     changeLabels(allLocalLevelLabels, false);
 // });
-
-// Create a custom control for the map title
-// Create a custom control for the map title
