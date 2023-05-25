@@ -81,32 +81,32 @@ L.Control.zoomHome = L.Control.extend({
 
     _zoomHome: function (e) {
         map.setView([28.5, 84], 8);
+        debugger;
 
         //reset the style of the local units
         changeLabels(allLocalLevelLabels, true);
-
+        changeLabels(allDistrictLabels, false);
         if (!map.hasLayer(districts)) {
             districts.eachLayer(function (layer) {
                 layer.on({
-                    // mouseover: highlightFeature,
                     click: zoomToFeature
                 });
             })
             map.addLayer(districts);
             changeLabels(allDistrictLabels, false);
         }
-        if (map.hasLayer(local_units)) {
-            // map.removeLayer(local_units);
+        if (map.hasLayer(localUnits)) {
+            // map.removeLayer(localUnits);
             changeLabels(allLocalLevelLabels, true);
         }
 
         info.update();
 
 
-        if (map.hasLayer(local_units)) {
-            local_units.setStyle(localStyle);
-            // map.removeLayer(local_units);
-            // local_units.clearLayers();
+        if (map.hasLayer(localUnits)) {
+            // localUnits.setStyle(localStyle);
+            map.removeLayer(localUnits);
+            // localUnits.clearLayers();
             //reset the style too
         }
 
@@ -192,7 +192,7 @@ function convertToNepaliUnicode(number) {
 
 //For test setting the files at local folder
 var baseURL = 'uploads';
-var district_name_clicked;
+var districtNameClicked;
 
 // Map variables
 var map = L.map('map-div', {
@@ -213,11 +213,10 @@ function changeLabels(labels, remove) {
             map.addLayer(element);
         });
     }
-
 }
 
 //Panel to show the information of the local level
-var info = L.control();
+var info = L.control({position: 'bottomright'});
 
 info.onAdd = function (map) {
     this._div = L.DomUtil.create('div', 'info'); // create a div with a class "info"
@@ -233,7 +232,7 @@ info.update = function (props) {
             content += `<b>${key}:</b>${props[key]}<br />`;
         }
     } else {
-        content += 'स्थानीय तहमा क्लिक गर्नुहोस'
+        content += 'स्थानीय तहमा क्लिक गर्नुहोस';
     }
     this._div.innerHTML = content;
 };
@@ -243,77 +242,26 @@ info.addTo(map);
 
 var zoomHome = new L.Control.zoomHome();
 zoomHome.addTo(map);
-// L.tileLayer is the predefined function that adds the tile layer to the map
-
-
-
-
-
-var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, OSM'
-});
 
 
 //push all labels in a array to remove and add them at once
 var allDistrictLabels = [];
 var allLocalLevelLabels = [];
-// osm.addTo(map)
-
-
 
 //local level GIS layer
-function highlightFeature(e) {
-
-    var layer = e.target;
-
-    layer.setStyle({
-        weight: 5,
-        color: '#666',
-        dashArray: '',
-        fillOpacity: 0.7
-    });
-
-    layer.bringToFront();
-}
-
-function resetHighlight(e) {
-    var layer = e.target;
-    // console.log('resetiing')
-    // console.log(district_name_clicked);
-
-    if (layer.feature.properties.DISTRICT == district_name_clicked) {
-
-        layer.setStyle({
-            fillColor: '#fff',
-            weight: 2,
-            opacity: 1,
-            color: '#15aabf',
-            dashArray: '3',
-            fillOpacity: 0.9
-        });
-
-
-    }
-}
-
 function zoomToLocalFeature(e) {
-    // resetHighlight(e);
-    // highlightFeature(e);
-
-
-    // local_units.resetStyle();
-    //find out the code of the local level
     //clear the info panel
     info.update();
     // var code = e.target.feature.properties.Code;
     var district = e.target.feature.properties.DISTRICT;
-    var gapa = e.target.feature.properties.GaPa_NaPa;
+    // var gapa = e.target.feature.properties.GaPa_NaPa;
     var code = e.target.feature.properties.Code;
     var gapa_np = e.target.feature.properties.name_np;
-    var content_for_panel = {};
-    content_for_panel['जिल्ला'] = mapNepaliDist[district];
-    content_for_panel['स्थानीय तह'] = gapa_np;
-    info.update(content_for_panel);
+    var contentForPanel = {};
+    contentForPanel['जिल्ला'] = mapNepaliDist[district];
+    contentForPanel['स्थानीय तह'] = gapa_np;
+    info.update(contentForPanel);
+    
     var url = `${baseURL}/${code}_W.CSV`;
     $.ajax({
         dataType: "text",
@@ -329,13 +277,15 @@ function zoomToLocalFeature(e) {
                 female_population += parseInt(element[2]);
                 ward_nos += 1;
             });
-            content_for_panel['वडा संख्या'] = convertToNepaliUnicode(ward_nos);
-            content_for_panel['महिला'] = convertToNepaliUnicode(female_population);
-            content_for_panel['पुरष'] = convertToNepaliUnicode(male_population);
-            info.update(content_for_panel);
+            contentForPanel['वडा संख्या'] = convertToNepaliUnicode(ward_nos);
+            contentForPanel['महिला'] = convertToNepaliUnicode(female_population);
+            contentForPanel['पुरुष'] = convertToNepaliUnicode(male_population);
+            info.update(contentForPanel);
         }
-
     });
+
+    // if another data is to be loaded...ajax here to load another csv
+    //info.update(contentForPanel);
 
 }
 
@@ -357,7 +307,7 @@ function localStyle(feature) {
     };
 }
 
-var local_units = new L.geoJSON(null, {
+var localUnits = new L.geoJSON(null, {
     style: localStyle,
     onEachFeature: onEachLocalFeature
 });
@@ -367,13 +317,10 @@ $.ajax({
     url: 'local_units.geojson',
     success: function (data) {
         $(data.features).each(function (key, data) {
-            local_units.addData(data);
+            localUnits.addData(data);
         });
     }
 });
-
-
-
 
 
 // district layer related 
@@ -411,27 +358,20 @@ function zoomToFeature(e) {
 
     //e.target
     //get distrit code
-    var district_name_clicked = e.target.feature.properties.DISTRICT;
-    var district_code = e.target.feature.properties.CODE;
+    var districtNameClicked = e.target.feature.properties.DISTRICT;
+    // var district_code = e.target.feature.properties.CODE;
     //removing district lables
     changeLabels(allDistrictLabels, true);
     //remove all the locallevels and local level labels
     changeLabels(allLocalLevelLabels, true);
-    if ((map.hasLayer(local_units))) {
+    if ((map.hasLayer(localUnits))) {
         changeLabels(allLocalLevelLabels, true);
-        map.removeLayer(local_units);
+        map.removeLayer(localUnits);
     }
 
-
-    if (map.hasLayer(districts)) {
-        map.removeLayer(districts);
-    }
-
-    local_units.eachLayer(function (layer) {
-        // debugger;
+    localUnits.eachLayer(function (layer) {
         // Styling so that only that districts local units are highlighted
-        if (layer.feature.properties.DISTRICT == district_name_clicked) {
-
+        if (layer.feature.properties.DISTRICT == districtNameClicked) {
             layer.setStyle({
                 fillColor: '#fff',
                 weight: 2,
@@ -443,7 +383,6 @@ function zoomToFeature(e) {
             var center_lat = layer.getBounds().getCenter().lat;
             var center_lng = layer.getBounds().getCenter().lng;
             var labelLocation = new L.LatLng(center_lat, center_lng);
-
             var labelContent = `${layer.feature.properties.name_np}`;
             var labelTitle = new L.LabelOverlay(labelLocation, labelContent);
             allLocalLevelLabels.push(labelTitle);
@@ -453,17 +392,14 @@ function zoomToFeature(e) {
             layer.setStyle({
                 fillColor: '#ff7800',
                 weight: 2,
-                opacity: 1,
-                fillOpacity: 0.9
+                opacity: 0,
+                fillOpacity: 0
             })
         }
     });
 
 
-    local_units.addTo(map);
-
-
-
+    localUnits.addTo(map);
     map.fitBounds(e.target.getBounds());
 
 }
@@ -472,7 +408,6 @@ function zoomToFeature(e) {
 function onEachDistrictFeature(feature, layer) {
 
     layer.on({
-        // mouseover: highlightFeature,
         click: zoomToFeature
     });
     var center_lat = layer.getBounds().getCenter().lat;
@@ -504,14 +439,14 @@ $.ajax({
 });
 
 
-var baseMaps = {
-    "baselayers": osm
-};
+// var baseMaps = {
+//     "baselayers": osm
+// };
 
-var overlayMaps = {
-    "Districts": districts,
-    "Local Units": local_units
-};
+// var overlayMaps = {
+//     "Districts": districts,
+//     "Local Units": localUnits
+// };
 
 // L.control.layers(baseMaps, overlayMaps).addTo(map);
 
@@ -529,7 +464,6 @@ var overlayMaps = {
 //     });
 // });
 // map.on('moveend', function () {
-//     console.log('move end')
 //     changeLabels(allDistrictLabels, false);
 //     changeLabels(allLocalLevelLabels, false);
 // });
